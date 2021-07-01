@@ -4,8 +4,9 @@ use url::Url;
 
 #[derive(Clone, Debug, Default)]
 pub struct SignedRequest {
+    pub schema: Schema,
     pub method: Method,
-    pub region: Region,
+    pub region: Option<Region>,
     pub bucket: String,
     pub object: String,
     pub headers: HeaderMap,
@@ -14,12 +15,11 @@ pub struct SignedRequest {
     pub access_key_id: String,
     pub access_key_secret: String,
     pub url: Option<Url>,
-    schema: Schema,
 }
 impl SignedRequest {
     pub fn new<M, S1, S2, S3, S4>(
         method: M,
-        region: &Region,
+        // region: &Region,
         bucket: S1,
         object: S2,
         access_key_id: S3,
@@ -35,7 +35,7 @@ impl SignedRequest {
     {
         Self {
             method: method.into(),
-            region: region.clone(),
+            // region: region.clone(),
             access_key_id: access_key_id.into(),
             access_key_secret: access_key_secret.into(),
             bucket: bucket.into(),
@@ -119,16 +119,15 @@ impl SignedRequest {
     //     }
     // }
 
-    pub fn get_url(&mut self) -> Option<Url> {
-        self.generate_url().ok()
-    }
-
     pub fn generate_url(&self) -> HttpResult<Url> {
+        let region = self.region.ok_or(errors::url(
+            "Region not found when building request. Plz assign it to the client.".to_owned(),
+        ))?;
         let url_str = if self.bucket.is_empty() {
             format!(
                 "{}://{}/{}{}",
                 self.get_schema(),
-                self.region.endpoint(),
+                region.endpoint(),
                 self.object,
                 get_params_str(&self.params),
             )
@@ -137,7 +136,7 @@ impl SignedRequest {
                 "{}://{}.{}/{}{}",
                 self.get_schema(),
                 self.bucket,
-                self.region.endpoint(),
+                region.endpoint(),
                 self.object,
                 get_params_str(&self.params),
             )
@@ -190,13 +189,13 @@ mod tests {
     fn signed_request_test() {
         let sr = SignedRequest::new(
             Method::GET,
-            &Region::BeiJing,
+            // &Region::BeiJing,
             "dev-sheet-calced",
             "A",
             "",
             "",
             Schema::Http,
         );
-        println!("{:?}", sr.generate_url());
+        assert!(sr.generate_url().is_err());
     }
 }
