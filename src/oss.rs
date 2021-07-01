@@ -20,7 +20,7 @@ pub struct OSSClient<C: SignAndDispatch> {
     schema: Schema,
 }
 impl OssClient {
-    pub fn new_with_reqwest<R, S, B, S1, S2>(
+    pub fn new_with_reqwest<'a, R, S, B, S1, S2>(
         region: R,
         schema: S,
         bucket: B,
@@ -29,8 +29,8 @@ impl OssClient {
     ) -> Self
     where
         R: AsRef<str>,
-        S: Into<Option<&str>>,
-        B: Into<Option<&str>>,
+        S: Into<Option<&'a str>>,
+        B: Into<Option<&'a str>>,
         S1: Into<String>,
         S2: Into<String>,
     {
@@ -104,7 +104,15 @@ impl<C: SignAndDispatch> OSSClient<C> {
     {
         self.generate_request(Method::DELETE, object, None)
     }
-    pub async fn sign_and_dispatch(&self, request: SignedRequest) -> Result<HttpResponse> {
+    pub async fn sign_and_dispatch<SR>(&self, request: SR) -> Result<HttpResponse>
+    where
+        SR: Into<SignedRequest>,
+    {
+        let mut request = request.into();
+        request.region = Some(self.region);
+        request.access_key_id = self.access_key_id.to_owned();
+        request.access_key_secret = self.access_key_secret.to_owned();
+
         self.client
             .sign_and_dispatch(request, None)
             .await
@@ -161,7 +169,7 @@ impl<C: SignAndDispatch> OSSClient<C> {
     {
         let mut signed_rqst = SignedRequest::new(
             method,
-            &self.region,
+            // &self.region,
             &self.bucket,
             object,
             &self.access_key_id,
@@ -210,6 +218,8 @@ impl SignedRequest {
 }
 #[cfg(test)]
 mod tests {
+    use crate::PutBucketRequest;
+
     use super::*;
     const FILE_NAME: &str = "rust_oss_sdk_test";
     const BUF: &[u8] = "This is just a put test".as_bytes();
@@ -219,6 +229,19 @@ mod tests {
         let bucket = std::env::var("OSS_BUCKET").unwrap();
         let access_key_id = std::env::var("OSS_KEY_ID").unwrap();
         let access_key_secret = std::env::var("OSS_KEY_SECRET").unwrap();
+        let oss_ins = OSSClient::new_with_reqwest(
+            "北京",
+            None,
+            "oss_put_bucket_test",
+            access_key_id.to_owned(),
+            access_key_secret.to_owned(),
+        );
+
+        let rqst = PutBucketRequest {
+            ..Default::default()
+        };
+        let ret = oss_ins.sign_and_dispatch(rqst).await;
+        println!("{:?}", ret);
 
         let oss_instance = OSSClient::new_with_reqwest(
             "北京",

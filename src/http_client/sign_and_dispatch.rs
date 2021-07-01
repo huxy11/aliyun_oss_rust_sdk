@@ -27,7 +27,7 @@ impl SignAndDispatch for reqwest::Client {
         let mut rqst = rqst;
         rqst.oss_sign()?;
         let method = rqst.method().to_owned();
-        let url = rqst.get_url().unwrap().to_owned();
+        let url = rqst.generate_url()?;
         let headers = rqst.headers().to_owned();
         let mut request_builder = self
             .request(method, url)

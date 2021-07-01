@@ -4,7 +4,8 @@ use std::{
     str::FromStr,
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+// Region is merely an enum, hence copy costs the same as clone.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Region {
     /// 华东-杭州
     HangZhou,
@@ -113,7 +114,11 @@ impl FromStr for Region {
     fn from_str(s: &str) -> Result<Self, ParseRegionError> {
         let v: &str = &s.to_lowercase();
         match v {
-            "北京" | "oss-cn-beijing" | "osscnbeijing" | "oss-cn-beijing.aliyuncs.com" | "oss-cn-beijing-internal.aliyuncs.com" => Ok(Region::BeiJing),
+            "北京"
+            | "oss-cn-beijing"
+            | "osscnbeijing"
+            | "oss-cn-beijing.aliyuncs.com"
+            | "oss-cn-beijing-internal.aliyuncs.com" => Ok(Region::BeiJing),
             s => Err(ParseRegionError::new(s)),
         }
     }
