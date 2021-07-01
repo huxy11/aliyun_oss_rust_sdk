@@ -1,4 +1,5 @@
 use base64::encode;
+use bytes::Bytes;
 use crypto::{hmac::Hmac, mac::Mac, sha1::Sha1};
 use http::{header::HeaderName, HeaderValue, Method};
 
@@ -88,7 +89,7 @@ impl<C: SignAndDispatch> OSSClient<C> {
     pub fn put_request<'a, S, P>(&self, object: S, payload: P) -> SignedRequest
     where
         S: Into<String>,
-        P: Into<Option<Box<[u8]>>>,
+        P: Into<Option<Vec<u8>>>,
     {
         self.generate_request(Method::PUT, object, payload)
     }
@@ -165,7 +166,7 @@ impl<C: SignAndDispatch> OSSClient<C> {
     fn generate_request<'a, S1, P>(&self, method: Method, object: S1, payload: P) -> SignedRequest
     where
         S1: Into<String>,
-        P: Into<Option<Box<[u8]>>>,
+        P: Into<Option<Vec<u8>>>,
     {
         let mut signed_rqst = SignedRequest::new(
             method,
@@ -176,12 +177,7 @@ impl<C: SignAndDispatch> OSSClient<C> {
             &self.access_key_secret,
             self.schema,
         );
-        let content_length = if let Some(_payload) = payload.into() {
-            signed_rqst.load(_payload.to_owned())
-        } else {
-            0
-        };
-        signed_rqst.set_content_length(content_length);
+        signed_rqst.set_payload(payload.into().map(|_vec: Vec<u8>| Bytes::from(_vec)));
         signed_rqst
     }
     fn host(&self, object: &str, params: &str) -> String {
@@ -218,6 +214,8 @@ impl SignedRequest {
 }
 #[cfg(test)]
 mod tests {
+    use tokio::io::AsyncReadExt;
+
     use crate::PutBucketRequest;
 
     use super::*;
@@ -229,6 +227,9 @@ mod tests {
         let bucket = std::env::var("OSS_BUCKET").unwrap();
         let access_key_id = std::env::var("OSS_KEY_ID").unwrap();
         let access_key_secret = std::env::var("OSS_KEY_SECRET").unwrap();
+
+        let mut str_buffer = String::new();
+
         let oss_ins = OSSClient::new_with_reqwest(
             "北京",
             None,
@@ -251,30 +252,41 @@ mod tests {
             access_key_secret,
         );
 
-        let mut rqst = oss_instance.put_request(FILE_NAME, BUF.to_vec().into_boxed_slice());
+        /* Put Object  */
+        let mut rqst = oss_instance.put_request(FILE_NAME, BUF.to_vec());
         rqst.add_meta([("test-key", "test-val")].iter().map(|a| a.to_owned()))
             .unwrap();
         let ret = oss_instance.sign_and_dispatch(rqst).await;
         println!("{:?}", ret);
         assert!(ret.is_ok() && ret.unwrap().status.is_success());
 
+        /* Get Object */
         let mut rqst = oss_instance.get_request(None);
         rqst.add_params("prefix", "rust_oss_sdk");
-        let ret = oss_instance.sign_and_dispatch(rqst).await;
-        assert!(ret.is_ok() && ret.unwrap().status.is_success());
+        let ret = oss_instance.sign_and_dispatch(rqst).await.unwrap();
+        assert!(ret.status.is_success());
 
+        /* Get Object */
         let rqst = oss_instance.get_request(FILE_NAME);
-        let ret = oss_instance.sign_and_dispatch(rqst).await;
-        assert!(ret.is_ok() && ret.unwrap().body == Box::pin(BUF));
+        let ret = oss_instance.sign_and_dispatch(rqst).await.unwrap();
+        ret.body
+            .into_async_read()
+            .read_to_string(&mut str_buffer)
+            .await
+            .unwrap();
+        assert_eq!(str_buffer.as_bytes(), BUF);
 
+        /* Add Header to Object */
         let rqst = oss_instance.head_request(FILE_NAME);
         let ret = oss_instance.sign_and_dispatch(rqst).await;
         assert!(ret.is_ok() && ret.unwrap().headers.contains_key("x-oss-meta-test-key"));
 
+        /* Del Object */
         let rqst = oss_instance.del_request(FILE_NAME);
         let ret = oss_instance.sign_and_dispatch(rqst).await;
         assert!(ret.is_ok() && ret.unwrap().status.is_success());
 
+        /* Check if del succeed */
         let rqst = oss_instance.get_request(FILE_NAME);
         let ret = oss_instance.sign_and_dispatch(rqst).await;
         assert!(ret.is_ok() && ret.unwrap().status.is_client_error());

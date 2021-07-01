@@ -1,3 +1,5 @@
+#![allow(dead_code)] //TODO: Kill this bypass
+
 use std::{error::Error as StdError, fmt};
 
 use http::StatusCode;

@@ -1,8 +1,9 @@
-use super::{errors::HttpResult, *};
+use super::{errors::HttpResult, stream::ByteStream, *};
+use bytes::Bytes;
 use http::{header::HeaderName, HeaderMap, HeaderValue, Method};
 use url::Url;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct SignedRequest {
     pub schema: Schema,
     pub method: Method,
@@ -11,15 +12,23 @@ pub struct SignedRequest {
     pub object: String,
     pub headers: HeaderMap,
     pub params: Params,
-    pub payload: Option<Box<[u8]>>,
+    pub payload: Option<SignedRequestPayload>,
     pub access_key_id: String,
     pub access_key_secret: String,
     pub url: Option<Url>,
 }
+/// Possible payloads included in a `SignedRequest`.
+#[derive(Debug)]
+pub enum SignedRequestPayload {
+    /// Transfer payload in a single chunk
+    Buffer(Bytes),
+    /// Transfer payload in multiple chunks
+    Stream(ByteStream),
+}
+
 impl SignedRequest {
     pub fn new<M, S1, S2, S3, S4>(
         method: M,
-        // region: &Region,
         bucket: S1,
         object: S2,
         access_key_id: S3,
@@ -35,7 +44,6 @@ impl SignedRequest {
     {
         Self {
             method: method.into(),
-            // region: region.clone(),
             access_key_id: access_key_id.into(),
             access_key_secret: access_key_secret.into(),
             bucket: bucket.into(),
@@ -77,14 +85,16 @@ impl SignedRequest {
         self.params
             .insert(key.into(), val.into().map(|s| s.to_owned()));
     }
-    pub fn load<P>(&mut self, payload: P) -> usize
+    pub fn set_payload<P>(&mut self, payload: P)
     where
-        P: Into<Box<[u8]>>,
+        P: Into<Option<Bytes>>,
     {
-        self.payload = Some(payload.into());
-        self.payload.as_ref().unwrap().len()
+        self.payload = payload.into().map(|chunk| {
+            self.set_content_length(chunk.len());
+            SignedRequestPayload::Buffer(chunk)
+        });
     }
-    pub fn unload(&mut self) -> Option<Box<[u8]>> {
+    pub fn unload(&mut self) -> Option<SignedRequestPayload> {
         self.payload.take()
     }
     pub fn set_content_type<V>(&mut self, content_type: V)
