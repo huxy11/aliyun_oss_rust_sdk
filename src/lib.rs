@@ -1,41 +1,13 @@
 #[macro_use]
 extern crate derive_more;
+extern crate headers_serializer;
+extern crate pin_project;
 
-mod http_client;
+mod auth;
 mod oss;
 mod statics;
 mod types;
 
-pub use statics::OSS_PREFIX;
-pub use types::*;
-
-pub use crate::http_client::{HttpError, HttpResponse, SignAndDispatch};
 pub use crate::oss::OSSClient;
-
-pub type OssClient = OSSClient<reqwest::Client>;
-
-impl OssClient {
-    pub fn new_oss_cli<'a, R, S, B, S1, S2>(
-        region: R,
-        schema: S,
-        bucket: B,
-        access_key_id: S1,
-        access_key_secret: S2,
-    ) -> Self
-    where
-        R: AsRef<str>,
-        S: Into<Option<&'a str>>,
-        B: Into<Option<&'a str>>,
-        S1: Into<String>,
-        S2: Into<String>,
-    {
-        Self::new(
-            reqwest::Client::new(),
-            region,
-            schema,
-            bucket,
-            access_key_id,
-            access_key_secret,
-        )
-    }
-}
+pub use statics::*;
+pub use types::*;

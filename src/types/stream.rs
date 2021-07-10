@@ -1,22 +1,20 @@
-use std::fmt;
-use std::io;
-use std::pin::Pin;
-use std::task::{Context, Poll};
-
 use bytes::{BufMut, Bytes, BytesMut};
 use futures::{future, stream, Stream, StreamExt};
-use pin_project_lite::pin_project;
+use pin_project::pin_project;
+use std::{
+    fmt, io,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tokio::io::{AsyncRead, ReadBuf};
 
-pin_project! {
-    /// Stream of bytes.
-    pub struct ByteStream {
-        size_hint: Option<usize>,
-        #[pin]
-        inner: Pin<Box<dyn Stream<Item = Result<Bytes, io::Error>> + Send + 'static>>,
-    }
+/// Stream of bytes.
+#[pin_project]
+pub struct ByteStream {
+    size_hint: Option<usize>,
+    #[pin]
+    inner: Pin<Box<dyn Stream<Item = Result<Bytes, io::Error>> + Send + 'static>>,
 }
-
 impl ByteStream {
     /// Create a new `ByteStream` by wrapping a `futures` stream.
     pub fn new<S>(stream: S) -> ByteStream
@@ -29,8 +27,7 @@ impl ByteStream {
         }
     }
 
-    /// Creates a new `ByteStream` by wrapping a `futures` stream. Allows for the addition of a
-    /// size_hint to satisy OSS's `PutObject` API.
+    /// Creates a new `ByteStream` by wrapping a `futures` stream. Allows for the additional size_hint.
     pub fn new_with_size<S>(stream: S, size_hint: usize) -> ByteStream
     where
         S: Stream<Item = Result<Bytes, io::Error>> + Send + 'static,
@@ -41,7 +38,7 @@ impl ByteStream {
         }
     }
 
-    pub fn size_hint(&self) -> Option<usize> {
+    pub(crate) fn size_hint(&self) -> Option<usize> {
         self.size_hint
     }
 
@@ -80,12 +77,11 @@ impl Stream for ByteStream {
     }
 }
 
-pin_project! {
-    struct ImplAsyncRead {
-        buffer: BytesMut,
-        #[pin]
-        stream: futures::stream::Fuse<Pin<Box<dyn Stream<Item = Result<Bytes, io::Error>> + Send>>>,
-    }
+#[pin_project]
+struct ImplAsyncRead {
+    buffer: BytesMut,
+    #[pin]
+    stream: futures::stream::Fuse<Pin<Box<dyn Stream<Item = Result<Bytes, io::Error>> + Send>>>,
 }
 
 impl ImplAsyncRead {
@@ -120,11 +116,10 @@ impl AsyncRead for ImplAsyncRead {
     }
 }
 
-pin_project! {
-    struct ImplBlockingRead {
-        #[pin]
-        inner: ImplAsyncRead,
-    }
+#[pin_project]
+struct ImplBlockingRead {
+    #[pin]
+    inner: ImplAsyncRead,
 }
 
 impl ImplBlockingRead {
@@ -156,21 +151,20 @@ async fn test_async_read() {
     use tokio::io::AsyncReadExt;
 
     let chunks = vec![
-        Ok(Bytes::from_static(b"1234")),
-        Ok(Bytes::from_static(b"5678")),
+        Ok(Bytes::from_static(b"Shimo")),
+        Ok(Bytes::from_static(b"Doc")),
     ];
     let stream = ByteStream::new(stream::iter(chunks));
     let mut async_read = stream.into_async_read();
 
+    // Buffer with capacity of 3
     let mut buf = [0u8; 3];
     assert_eq!(async_read.read(&mut buf).await.unwrap(), 3);
-    assert_eq!(&buf[..3], b"123");
-    assert_eq!(async_read.read(&mut buf).await.unwrap(), 1);
-    assert_eq!(&buf[..1], b"4");
+    assert_eq!(&buf[..3], b"Shi");
+    assert_eq!(async_read.read(&mut buf).await.unwrap(), 2);
+    assert_eq!(&buf[..2], b"mo");
     assert_eq!(async_read.read(&mut buf).await.unwrap(), 3);
-    assert_eq!(&buf[..3], b"567");
-    assert_eq!(async_read.read(&mut buf).await.unwrap(), 1);
-    assert_eq!(&buf[..1], b"8");
+    assert_eq!(&buf[..3], b"Doc");
     assert_eq!(async_read.read(&mut buf).await.unwrap(), 0);
 }
 
@@ -180,22 +174,21 @@ fn test_blocking_read() {
     use std::io::Read;
 
     let chunks = vec![
-        Ok(Bytes::from_static(b"1234")),
-        Ok(Bytes::from_static(b"5678")),
+        Ok(Bytes::from_static(b"Shimo")),
+        Ok(Bytes::from_static(b"Doc")),
     ];
     let stream = ByteStream::new(stream::iter(chunks));
-    let mut async_read = stream.into_blocking_read();
+    let mut block_read = stream.into_blocking_read();
 
+    // Buffer with capacity of 3
     let mut buf = [0u8; 3];
-    assert_eq!(async_read.read(&mut buf).unwrap(), 3);
-    assert_eq!(&buf[..3], b"123");
-    assert_eq!(async_read.read(&mut buf).unwrap(), 1);
-    assert_eq!(&buf[..1], b"4");
-    assert_eq!(async_read.read(&mut buf).unwrap(), 3);
-    assert_eq!(&buf[..3], b"567");
-    assert_eq!(async_read.read(&mut buf).unwrap(), 1);
-    assert_eq!(&buf[..1], b"8");
-    assert_eq!(async_read.read(&mut buf).unwrap(), 0);
+    assert_eq!(block_read.read(&mut buf).unwrap(), 3);
+    assert_eq!(&buf[..3], b"Shi");
+    assert_eq!(block_read.read(&mut buf).unwrap(), 2);
+    assert_eq!(&buf[..2], b"mo");
+    assert_eq!(block_read.read(&mut buf).unwrap(), 3);
+    assert_eq!(&buf[..3], b"Doc");
+    assert_eq!(block_read.read(&mut buf).unwrap(), 0);
 }
 
 #[tokio::test]
@@ -204,8 +197,8 @@ async fn test_new_with_size_read() {
     use tokio::io::AsyncReadExt;
 
     let chunks = vec![
-        Ok(Bytes::from_static(b"1234")),
-        Ok(Bytes::from_static(b"5678")),
+        Ok(Bytes::from_static(b"Shimo")),
+        Ok(Bytes::from_static(b"Doc")),
     ];
     let stream = ByteStream::new_with_size(stream::iter(chunks), 8);
 
@@ -215,12 +208,10 @@ async fn test_new_with_size_read() {
 
     let mut buf = [0u8; 3];
     assert_eq!(async_read.read(&mut buf).await.unwrap(), 3);
-    assert_eq!(&buf[..3], b"123");
-    assert_eq!(async_read.read(&mut buf).await.unwrap(), 1);
-    assert_eq!(&buf[..1], b"4");
+    assert_eq!(&buf[..3], b"Shi");
+    assert_eq!(async_read.read(&mut buf).await.unwrap(), 2);
+    assert_eq!(&buf[..2], b"mo");
     assert_eq!(async_read.read(&mut buf).await.unwrap(), 3);
-    assert_eq!(&buf[..3], b"567");
-    assert_eq!(async_read.read(&mut buf).await.unwrap(), 1);
-    assert_eq!(&buf[..1], b"8");
+    assert_eq!(&buf[..3], b"Doc");
     assert_eq!(async_read.read(&mut buf).await.unwrap(), 0);
 }

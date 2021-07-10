@@ -1,10 +1,16 @@
 mod errors;
+mod options;
+mod payload;
 mod regions;
-mod requests;
+mod request;
 mod schema;
+mod stream;
 
-pub use regions::*;
-pub use requests::{get_object::GetObjectRequest, put_bucket::PutBucketRequest};
+pub use options::*;
+pub use payload::Payload;
+pub use regions::Region;
 pub use schema::Schema;
+pub use stream::ByteStream;
 
 pub(crate) use errors::{Error, Result};
+pub(crate) use request::{Metas, Request};

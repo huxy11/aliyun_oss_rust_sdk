@@ -1,22 +1,25 @@
 use std::{error::Error as StdError, fmt};
 
-use http::header::{InvalidHeaderName, InvalidHeaderValue};
+use http_client::HttpError;
 
-use crate::HttpError;
+use hyper::header::{InvalidHeaderName, InvalidHeaderValue};
+use url::ParseError;
 
 pub(crate) type Result<T> = std::result::Result<T, Error>;
 
 type BoxedError = Box<dyn StdError + Send + Sync>;
 
+/// Error 类型
 pub struct Error {
     kind: Kind,
     source: Option<BoxedError>,
-    // url: Option<Url>,
 }
 #[derive(Debug)]
 pub(crate) enum Kind {
     Http,
+    HeaderToStrError,
     InvalidHeader,
+    UrlParsingError,
 }
 impl Error {
     pub(crate) fn new<E>(kind: Kind, err: E) -> Self
@@ -28,8 +31,15 @@ impl Error {
             source: Some(err.into()),
         }
     }
+    pub(crate) fn header_to_str_error<E>(err: E) -> Self
+    where
+        E: Into<BoxedError>,
+    {
+        Self::new(Kind::HeaderToStrError, err)
+    }
 }
 
+/* From Traits */
 impl From<HttpError> for Error {
     fn from(e: HttpError) -> Error {
         Error::new(Kind::Http, e)
@@ -43,6 +53,11 @@ impl From<InvalidHeaderName> for Error {
 impl From<InvalidHeaderValue> for Error {
     fn from(e: InvalidHeaderValue) -> Error {
         Error::new(Kind::InvalidHeader, e)
+    }
+}
+impl From<ParseError> for Error {
+    fn from(e: ParseError) -> Error {
+        Error::new(Kind::UrlParsingError, e)
     }
 }
 
@@ -73,74 +88,3 @@ impl std::error::Error for Error {
         self.source.as_ref().map(|e| &**e as _)
     }
 }
-// impl From<QxmlError> for Error {
-//     fn from(e: QxmlError) -> Error {
-//         Error::Qxml(e)
-//     }
-// }
-// #[derive(Debug, Display)]
-// pub enum Error {
-//     Object(ObjectError),
-//     // Io(IoError),
-//     // String(FromUtf8Error),
-//     // Str(Utf8Error),
-//     // HttpError(HttpError),
-//     // ParseRegion(ParseRegionError),
-//     // Qxml(QxmlError),
-//     // ParseBool(ParseBoolError),
-// }
-
-// impl From<QxmlError> for Error {
-//     fn from(e: QxmlError) -> Error {
-//         Error::Qxml(e)
-//     }
-// }
-
-// impl From<IoError> for Error {
-//     fn from(e: IoError) -> Error {
-//         Error::Io(e)
-//     }
-// }
-
-// impl From<HttpError> for Error {
-//     fn from(e: HttpError) -> Error {
-//         Error::HttpError(e)
-//     }
-// }
-
-// impl From<FromUtf8Error> for Error {
-//     fn from(e: FromUtf8Error) -> Error {
-//         Error::String(e)
-//     }
-// }
-// impl From<Utf8Error> for Error {
-//     fn from(e: Utf8Error) -> Error {
-//         Error::Str(e)
-//     }
-// }
-
-// impl From<ParseBoolError> for Error {
-//     fn from(e: ParseBoolError) -> Error {
-//         Error::ParseBool(e)
-//     }
-// }
-// impl From<ParseRegionError> for Error {
-//     fn from(e: ParseRegionError) -> Error {
-//         Error::ParseRegion(e)
-//     }
-// }
-// #[derive(Debug, Display)]
-// pub enum ObjectError {
-//     #[display(fmt = "PUT ERROR: {:#?}", msg)]
-//     PutError { msg: String },
-//     #[display(fmt = "GET ERROR: {:#?}", msg)]
-//     GetError { msg: String },
-//     #[display(fmt = "DELETE ERROR: {:#?}", msg)]
-//     DeleteError { msg: String },
-//     #[display(fmt = "HEAD ERROR: {:#?}", msg)]
-//     HeadError { msg: String },
-// }
-
-// pub type Result<T> = std::result::Result<T, Error>;
-
-// impl StdError for Error {}
