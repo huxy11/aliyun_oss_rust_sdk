@@ -1,5 +1,5 @@
 use once_cell::sync::OnceCell;
-pub const OSS_PREFIX: &str = "x-oss-meta-";
+pub const OSS_META_PREFIX: &str = "x-oss-meta-";
 pub const OSS_CANONICALIZED_PREFIX: &str = "x-oss-";
 
 pub(crate) const CONTENT_TYPE: &str = "content-type";

@@ -1,13 +1,13 @@
-use super::errors::HttpResult;
-use super::*;
 use base64::encode;
 use chrono::Utc;
 
 use crypto::hmac::Hmac;
 use crypto::mac::Mac;
 use crypto::sha1::Sha1;
-use http::header::HeaderName;
-use http::HeaderValue;
+use http_client::{HttpClient, Params};
+use hyper::header::{HeaderName, HeaderValue};
+
+use crate::{statics::OSS_CANONICALIZED_PREFIX, types::*, OSSClient};
 
 const RESOURCES: [&str; 51] = [
     "acl",
@@ -63,19 +63,17 @@ const RESOURCES: [&str; 51] = [
     "continuation-token",
 ];
 
-impl SignedRequest {
-    pub(crate) fn oss_sign(&mut self) -> HttpResult<()> {
-        self.add_header(
+impl<C: HttpClient> OSSClient<C> {
+    pub(crate) fn oss_sign(&self, rqst: &mut Request) -> Result<()> {
+        let headers = rqst.headers_mut();
+        headers.insert(
             HeaderName::from_static("date"),
-            HeaderValue::from_str(&Utc::now().format("%a, %d %b %Y %T GMT").to_string())
-                .map_err(errors::header)?,
+            HeaderValue::from_str(&Utc::now().format("%a, %d %b %Y %T GMT").to_string())?,
         );
-        let (auth_key, auth_value) = self.authorization_header()?;
-        self.add_header(auth_key, auth_value);
-        Ok(())
+        self.add_authorization_header(rqst)
     }
-    fn authorization_header(&self) -> HttpResult<(HeaderName, HeaderValue)> {
-        let headers = &self.headers;
+    fn add_authorization_header(&self, rqst: &mut Request) -> Result<()> {
+        let headers = rqst.headers();
         let date = headers
             .get("date")
             .and_then(|val| val.to_str().ok())
@@ -91,28 +89,67 @@ impl SignedRequest {
             .unwrap_or_default();
 
         let mut oss_headers_str = String::new();
-        for (k, v) in headers
-            .iter()
-            .filter(|(k, _)| k.as_str().contains("x-oss-"))
-        {
-            oss_headers_str += &format!("{}:{}\n", k, v.to_str().map_err(errors::header)?);
+        for (k, v) in headers.iter().filter(|(k, _)| {
+            k.as_str().contains(OSS_CANONICALIZED_PREFIX)
+            // && !k.as_str().contains(OSS_META_PREFIX)
+        }) {
+            oss_headers_str += &format!(
+                "{}:{}\n",
+                k,
+                v.to_str().map_err(Error::header_to_str_error)?
+            );
         }
 
-        let oss_resource_str = get_oss_resource_str(&self.bucket, &self.object, &self.params);
+        let oss_resource_str =
+            canonicalized_resource(self.get_bucket(), rqst.get_object(), rqst.get_params());
         let sign_str = format!(
             "{}\n{}\n{}\n{}\n{}{}",
-            &self.method, content_md5, content_type, date, oss_headers_str, oss_resource_str
+            rqst.get_method(),
+            content_md5,
+            content_type,
+            date,
+            oss_headers_str,
+            oss_resource_str
         );
 
-        let mut hasher = Hmac::new(Sha1::new(), &self.access_key_secret.as_bytes());
+        let (access_key_id, access_key_secret) = self.get_access_key();
+        let mut hasher = Hmac::new(Sha1::new(), access_key_secret.as_bytes());
         hasher.input(sign_str.as_bytes());
         let sign_str_base64 = encode(hasher.result().code());
 
         let authorization =
-            HeaderValue::from_str(&format!("OSS {}:{}", &self.access_key_id, sign_str_base64))
-                .map_err(errors::header)?;
-        Ok((HeaderName::from_static("authorization"), authorization))
+            HeaderValue::from_str(&format!("OSS {}:{}", access_key_id, sign_str_base64))?;
+        rqst.headers_mut()
+            .insert(HeaderName::from_static("authorization"), authorization);
+        Ok(())
     }
+}
+
+#[inline]
+pub(crate) fn canonicalized_resource(
+    bucket: Option<&str>,
+    object: Option<&str>,
+    params: &Params,
+) -> String {
+    /*
+    1. CanonicalizedResource = "/BucketName/ObjectName", "/BucketName" or "/""  + "?" + SubResources
+    2. SubResources, 将所有的子资源按照字典序，从小到大排列并以&为分隔符生成子资源字符串。
+     */
+    
+    let mut ret = String::new();
+    if let Some(bucket) = bucket {
+        ret.push('/');
+        ret.push_str(bucket);
+    }
+    if let Some(object) = object {
+        ret.push('/');
+        ret.push_str(object);
+    }
+    if ret.is_empty() {
+        ret.push('/');
+    }
+    ret.push_str(&get_resources_str(params));
+    ret
 }
 
 #[inline]
@@ -122,6 +159,7 @@ fn get_resources_str(params: &Params) -> String {
         .filter(|(k, _)| RESOURCES.contains(&k.as_str()))
         .map(|(k, v)| (k.to_owned(), v.to_owned()))
         .collect();
+    // TODO Delete this line
     resources.sort_by(|a, b| a.0.cmp(&b.0));
     let mut result = String::new();
     for (k, v) in resources {
@@ -137,14 +175,4 @@ fn get_resources_str(params: &Params) -> String {
         }
     }
     result
-}
-
-#[inline]
-fn get_oss_resource_str(bucket: &str, object: &str, params: &Params) -> String {
-    let oss_resources = get_resources_str(params);
-    if bucket == "" {
-        format!("/{}{}", object, oss_resources)
-    } else {
-        format!("/{}/{}{}", bucket, object, oss_resources)
-    }
 }
