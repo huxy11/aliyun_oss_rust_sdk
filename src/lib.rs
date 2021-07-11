@@ -1,8 +1,3 @@
-#[macro_use]
-extern crate derive_more;
-extern crate headers_serializer;
-extern crate pin_project;
-
 mod api;
 mod auth;
 mod oss;

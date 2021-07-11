@@ -4,7 +4,7 @@ use std::{
     str::FromStr,
 };
 
-#[derive(Clone, Copy, Debug, Display)]
+#[derive(Clone, Copy, Debug)]
 pub enum Schema {
     Http,
     Https,
@@ -13,6 +13,15 @@ pub enum Schema {
 impl Default for Schema {
     fn default() -> Self {
         Schema::Https
+    }
+}
+impl Display for Schema {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Schema::Http => "http",
+            Schema::Https => "https",
+        };
+        write!(f, "{}", s)
     }
 }
 impl FromStr for Schema {
