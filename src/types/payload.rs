@@ -22,7 +22,7 @@ impl Payload {
     pub(crate) fn len(&self) -> Option<usize> {
         match self {
             Payload::Buffer(bytes) => Some(bytes.len()),
-            Payload::Stream(stream) => stream.size_hint(),
+            Payload::Stream(stream) => stream.size_hint().1,
         }
     }
 }
