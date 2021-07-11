@@ -13,7 +13,7 @@ use tokio::io::{AsyncRead, ReadBuf};
 /// Stream of bytes.
 #[pin_project]
 pub struct ByteStream {
-    size_hint: Option<usize>,
+    size_hint: (usize, Option<usize>),
     #[pin]
     inner: Pin<Box<dyn Stream<Item = Result<Bytes, io::Error>> + Send + 'static>>,
 }
@@ -24,7 +24,7 @@ impl ByteStream {
         S: Stream<Item = Result<Bytes, io::Error>> + Send + 'static,
     {
         ByteStream {
-            size_hint: None,
+            size_hint: stream.size_hint(),
             inner: Box::pin(stream),
         }
     }
@@ -35,12 +35,12 @@ impl ByteStream {
         S: Stream<Item = Result<Bytes, io::Error>> + Send + 'static,
     {
         ByteStream {
-            size_hint: Some(size_hint),
+            size_hint: (0, Some(size_hint)),
             inner: Box::pin(stream),
         }
     }
 
-    pub(crate) fn size_hint(&self) -> Option<usize> {
+    pub(crate) fn size_hint(&self) -> (usize, Option<usize>) {
         self.size_hint
     }
 
@@ -58,7 +58,7 @@ impl ByteStream {
 impl From<Vec<u8>> for ByteStream {
     fn from(buf: Vec<u8>) -> ByteStream {
         ByteStream {
-            size_hint: Some(buf.len()),
+            size_hint: (buf.len(), Some(buf.len())),
             inner: Box::pin(stream::once(async move { Ok(Bytes::from(buf)) })),
         }
     }
@@ -216,7 +216,7 @@ async fn test_new_with_size_read() {
     ];
     let stream = ByteStream::new_with_size(stream::iter(chunks), 8);
 
-    assert_eq!(stream.size_hint, Some(8));
+    assert_eq!(stream.size_hint, (0, Some(8)));
 
     let mut async_read = stream.into_async_read();
 

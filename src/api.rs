@@ -2,7 +2,7 @@ use http_client::HttpClient;
 use hyper::{header::HeaderName, Method};
 
 use crate::{oss::OSSClient, GetObjectOptions};
-use crate::{Payload, PutObjectOptions, Request, Response, Result};
+use crate::{HeadObjectOptions, Payload, PutObjectOptions, Request, Response, Result};
 
 impl<C: HttpClient> OSSClient<C> {
     pub async fn get_object<S, Opts>(&self, object: S, options: Opts) -> Result<Response>
@@ -20,7 +20,6 @@ impl<C: HttpClient> OSSClient<C> {
             None,
         );
         let opts = options.into().unwrap_or_default();
-
         for (key, val) in opts.to_opts() {
             rqst.headers_mut()
                 .insert(key.parse::<HeaderName>()?, val.parse()?);
@@ -28,9 +27,28 @@ impl<C: HttpClient> OSSClient<C> {
         self.sign_and_dispatch(rqst).await
     }
 
-    
+    pub async fn head_object<S, Opts>(&self, object: S, options: Opts) -> Result<Response>
+    where
+        S: AsRef<str>,
+        Opts: Into<Option<HeadObjectOptions>>,
+    {
+        let mut rqst = Request::new(
+            Method::HEAD,
+            self.get_bucket(),
+            Some(object.as_ref()),
+            self.get_schema(),
+            None,
+            None,
+            None,
+        );
+        let opts = options.into().unwrap_or_default();
+        for (key, val) in opts.to_opts() {
+            rqst.headers_mut()
+                .insert(key.parse::<HeaderName>()?, val.parse()?);
+        }
+        self.sign_and_dispatch(rqst).await
+    }
 
-    
     pub async fn put_object<S, Opts>(
         &self,
         object: S,
@@ -64,7 +82,7 @@ impl<C: HttpClient> OSSClient<C> {
 mod tests {
     use super::*;
     use crate::types::Metas;
-    use futures::{AsyncReadExt, TryStreamExt};
+    use tokio::io::AsyncReadExt;
     const BUF: &[u8] = "This is just a put test".as_bytes();
     const FILE_NAME: &str = "test-with-header";
     const META_KEY: &str = "test-meta-key";
@@ -85,11 +103,13 @@ mod tests {
         println!("headers: {:?}", ret.headers);
         assert!(ret.headers.contains_key(META_KEY_WITH_PREFIX));
 
-        let mut reader = TryStreamExt::map_err(ret.body, |error| {
-            std::io::Error::new(std::io::ErrorKind::Other, error)
-        })
-            .into_async_read();
-        let mut buf = String::new();
+        let mut buf = if let (_, Some(size_hint)) = ret.body.size_hint() {
+            String::with_capacity(size_hint)
+        } else {
+            String::new()
+        };
+
+        let mut reader = ret.body.into_async_read();
         reader.read_to_string(&mut buf).await.unwrap();
         println!("Body: {}", buf);
     }
@@ -107,12 +127,12 @@ mod tests {
         println!("StatusCode: {}", ret.status.to_string());
         println!("headers: {:?}", ret.headers);
 
-        let mut reader = TryStreamExt::map_err(ret.body, |error| {
-            std::io::Error::new(std::io::ErrorKind::Other, error)
-        })
-            .into_async_read();
-
-        let mut buf = String::new();
+        let mut buf = if let (_, Some(size_hint)) = ret.body.size_hint() {
+            String::with_capacity(size_hint)
+        } else {
+            String::new()
+        };
+        let mut reader = ret.body.into_async_read();
         reader.read_to_string(&mut buf).await.unwrap();
         println!("Body: {}", buf);
     }
@@ -133,15 +153,22 @@ mod tests {
         println!("StatusCode: {}", ret.status.to_string());
         println!("headers: {:?}", ret.headers);
 
-        let mut reader = TryStreamExt::map_err(ret.body, |error| {
-            std::io::Error::new(std::io::ErrorKind::Other, error)
-        })
-            .into_async_read();
-        let mut buf = String::new();
+        let mut buf = if let (_, Some(size_hint)) = ret.body.size_hint() {
+            String::with_capacity(size_hint)
+        } else {
+            String::new()
+        };
+        let mut reader = ret.body.into_async_read();
         reader.read_to_string(&mut buf).await.unwrap();
         println!("Body: {}", buf);
     }
-
+    #[tokio::test]
+    async fn head_object_test() {
+        let oss_cli = oss_client();
+        let ret = oss_cli.head_object(FILE_NAME, None).await.unwrap();
+        println!("StatusCode: {}", ret.status.to_string());
+        println!("headers: {:?}", ret.headers);
+    }
     fn oss_client() -> OSSClient<http_client::DefaultClient> {
         let bucket = std::env::var("OSS_BUCKET").unwrap();
         let access_key_id = std::env::var("OSS_KEY_ID").unwrap();
