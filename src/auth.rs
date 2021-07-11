@@ -7,63 +7,10 @@ use crypto::sha1::Sha1;
 use http_client::{HttpClient, Params};
 use hyper::header::{HeaderName, HeaderValue};
 
-use crate::{statics::OSS_CANONICALIZED_PREFIX, types::*, OSSClient};
-
-const RESOURCES: [&str; 51] = [
-    "acl",
-    "uploads",
-    "location",
-    "cors",
-    "logging",
-    "website",
-    "referer",
-    "lifecycle",
-    "delete",
-    "append",
-    "tagging",
-    "objectMeta",
-    "uploadId",
-    "partNumber",
-    "security-token",
-    "position",
-    "img",
-    "style",
-    "styleName",
-    "replication",
-    "replicationProgress",
-    "replicationLocation",
-    "cname",
-    "bucketInfo",
-    "comp",
-    "qos",
-    "live",
-    "status",
-    "vod",
-    "startTime",
-    "endTime",
-    "symlink",
-    "x-oss-process",
-    "response-content-type",
-    "response-content-language",
-    "response-expires",
-    "response-cache-control",
-    "response-content-disposition",
-    "response-content-encoding",
-    "udf",
-    "udfName",
-    "udfImage",
-    "udfId",
-    "udfImageDesc",
-    "udfApplication",
-    "comp",
-    "udfApplicationLog",
-    "restore",
-    "callback",
-    "callback-var",
-    "continuation-token",
-];
+use crate::{statics::OSS_CANONICALIZED_PREFIX, types::*, OSSClient, RESOURCES};
 
 impl<C: HttpClient> OSSClient<C> {
+    /// Add Signatures to Headers
     pub(crate) fn oss_sign(&self, rqst: &mut Request) -> Result<()> {
         let headers = rqst.headers_mut();
         headers.insert(
@@ -124,18 +71,16 @@ impl<C: HttpClient> OSSClient<C> {
         Ok(())
     }
 }
-
+/*
+1. CanonicalizedResource = "/BucketName/ObjectName", "/BucketName" or "/""  + "?" + SubResources
+2. SubResources, 将所有的子资源按照字典序，从小到大排列并以&为分隔符生成子资源字符串。
+ */
 #[inline]
 pub(crate) fn canonicalized_resource(
     bucket: Option<&str>,
     object: Option<&str>,
     params: &Params,
 ) -> String {
-    /*
-    1. CanonicalizedResource = "/BucketName/ObjectName", "/BucketName" or "/""  + "?" + SubResources
-    2. SubResources, 将所有的子资源按照字典序，从小到大排列并以&为分隔符生成子资源字符串。
-     */
-    
     let mut ret = String::new();
     if let Some(bucket) = bucket {
         ret.push('/');

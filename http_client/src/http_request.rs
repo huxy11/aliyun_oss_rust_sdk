@@ -1,6 +1,7 @@
 use hyper::{Body, HeaderMap, Method, Uri};
 use url::Url;
 
+/// Url Query parameters 
 pub type Params = std::collections::BTreeMap<String, Option<String>>;
 
 #[derive(Debug)]

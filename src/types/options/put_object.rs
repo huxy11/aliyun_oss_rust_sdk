@@ -1,7 +1,6 @@
 use headers_serializer::ToMaps;
 
 use crate::types::Metas;
-/// You can call this operation to create a bucket.
 #[derive(Clone, Debug, Default, PartialEq, ToMaps)]
 // #[cfg_attr(feature = "deserialize_structs", derive(Deserialize))]
 pub struct PutObjectOptions {
