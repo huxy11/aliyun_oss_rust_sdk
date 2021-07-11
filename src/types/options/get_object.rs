@@ -1,7 +1,5 @@
 use headers_serializer::ToMaps;
 
-use crate::types::Metas;
-
 #[derive(Clone, Debug, Default, PartialEq, ToMaps)]
 // #[cfg_attr(feature = "deserialize_structs", derive(Deserialize))]
 pub struct GetObjectOptions {
@@ -51,7 +49,5 @@ pub struct GetObjectOptions {
     /// </p>
     #[label("opts")]
     pub accept_encoding: Option<String>,
-    /// <p>If the PutObject request contains a parameter prefixed with x-oss-meta-*, the parameter is considered to be user metadata. Example: x-oss-meta-location. An object can have multiple similar parameters. However, the total size of the user metadata cannot exceed 8 KB.</p>
-    /// <p>Metadata supports hyphens (-), digits, and letters. Uppercase letters are converted to lowercase letters, and other characters such as underscores (_) are not supported.</p>
-    pub metas: Option<Metas>,
+    // pub metas: Option<Metas>,
 }

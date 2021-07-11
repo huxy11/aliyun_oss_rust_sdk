@@ -55,5 +55,8 @@ pub struct PutObjectOptions {
     /// <p>Note: <li>The tag key and value must be URL-encoded. If a key-value pair does not contain an equal sign (=), the tag value is considered an empty string.</li></p>
     #[label("opts")]
     pub x_oss_tagging: Option<String>,
+
+    /// <p>If the PutObject request contains a parameter prefixed with x-oss-meta-*, the parameter is considered to be user metadata. Example: x-oss-meta-location. An object can have multiple similar parameters. However, the total size of the user metadata cannot exceed 8 KB.</p>
+    /// <p>Metadata supports hyphens (-), digits, and letters. Uppercase letters are converted to lowercase letters, and other characters such as underscores (_) are not supported.</p>
     pub metas: Option<Metas>,
 }

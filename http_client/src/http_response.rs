@@ -34,3 +34,8 @@ impl From<reqwest::Response> for HttpResponse {
         }
     }
 }
+impl From<hyper::Response<Body>> for HttpResponse {
+    fn from(_: hyper::Response<Body>) -> Self {
+        todo!()
+    }
+}

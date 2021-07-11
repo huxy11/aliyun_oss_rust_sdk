@@ -19,6 +19,7 @@ pub(crate) enum Kind {
     Http,
     HeaderToStrError,
     InvalidHeader,
+    IoError,
     UrlParsingError,
 }
 impl Error {
@@ -51,13 +52,18 @@ impl From<InvalidHeaderName> for Error {
     }
 }
 impl From<InvalidHeaderValue> for Error {
-    fn from(e: InvalidHeaderValue) -> Error {
-        Error::new(Kind::InvalidHeader, e)
+    fn from(err: InvalidHeaderValue) -> Error {
+        Error::new(Kind::InvalidHeader, err)
     }
 }
 impl From<ParseError> for Error {
-    fn from(e: ParseError) -> Error {
-        Error::new(Kind::UrlParsingError, e)
+    fn from(err: ParseError) -> Error {
+        Error::new(Kind::UrlParsingError, err)
+    }
+}
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Self {
+        Error::new(Kind::IoError, err)
     }
 }
 

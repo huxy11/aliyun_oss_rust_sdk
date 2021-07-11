@@ -1,8 +1,7 @@
 use bytes::Bytes;
-// use futures::Stream;
 use hyper::Body;
 
-use super::stream::ByteStream;
+use crate::ByteStream;
 
 /// Possible payloads included in a `Request`.
 #[derive(Debug)]

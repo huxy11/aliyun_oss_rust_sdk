@@ -1,11 +1,11 @@
-use http_client::{HttpClient, HttpResponse};
+use http_client::HttpClient;
 use hyper::{header::HeaderName, Method};
 
 use crate::{oss::OSSClient, GetObjectOptions};
-use crate::{Payload, PutObjectOptions, Request, Result};
+use crate::{Payload, PutObjectOptions, Request, Response, Result};
 
 impl<C: HttpClient> OSSClient<C> {
-    pub async fn get_object<S, Opts>(&self, object: S, options: Opts) -> Result<HttpResponse>
+    pub async fn get_object<S, Opts>(&self, object: S, options: Opts) -> Result<Response>
     where
         S: AsRef<str>,
         Opts: Into<Option<GetObjectOptions>>,
@@ -20,19 +20,23 @@ impl<C: HttpClient> OSSClient<C> {
             None,
         );
         let opts = options.into().unwrap_or_default();
-        rqst.add_metas(opts.metas.as_ref())?;
+
         for (key, val) in opts.to_opts() {
             rqst.headers_mut()
                 .insert(key.parse::<HeaderName>()?, val.parse()?);
         }
         self.sign_and_dispatch(rqst).await
     }
+
+    
+
+    
     pub async fn put_object<S, Opts>(
         &self,
         object: S,
         payload: Payload,
         options: Opts,
-    ) -> Result<HttpResponse>
+    ) -> Result<Response>
     where
         S: AsRef<str>,
         Opts: Into<Option<PutObjectOptions>>,
@@ -52,7 +56,6 @@ impl<C: HttpClient> OSSClient<C> {
             rqst.headers_mut()
                 .insert(key.parse::<HeaderName>()?, val.parse()?);
         }
-        println!("rqst headers: {:?}", rqst.headers());
         self.sign_and_dispatch(rqst).await
     }
 }
@@ -63,6 +66,10 @@ mod tests {
     use crate::types::Metas;
     use futures::{AsyncReadExt, TryStreamExt};
     const BUF: &[u8] = "This is just a put test".as_bytes();
+    const FILE_NAME: &str = "test-with-header";
+    const META_KEY: &str = "test-meta-key";
+    const META_KEY_WITH_PREFIX: &str = "x-oss-meta-test-meta-key";
+    const META_VAL: &str = "test-meta-val";
 
     #[tokio::test]
     async fn get_object_test() {
@@ -73,40 +80,38 @@ mod tests {
             ..Default::default()
         };
 
-        let ret = oss_cli.get_object("test-with-stream", opts).await.unwrap();
+        let ret = oss_cli.get_object(FILE_NAME, opts).await.unwrap();
         println!("StatusCode: {}", ret.status.to_string());
         println!("headers: {:?}", ret.headers);
+        assert!(ret.headers.contains_key(META_KEY_WITH_PREFIX));
 
-        let mut reader = ret
-            .body
-            .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))
+        let mut reader = TryStreamExt::map_err(ret.body, |error| {
+            std::io::Error::new(std::io::ErrorKind::Other, error)
+        })
             .into_async_read();
         let mut buf = String::new();
         reader.read_to_string(&mut buf).await.unwrap();
         println!("Body: {}", buf);
     }
-
     #[tokio::test]
     async fn put_buffer_object_test() {
         let oss_cli = oss_client();
         let mut metas = Metas::default();
-        metas.insert("test-meta-key".to_owned(), "test-meta-val".to_owned());
+        metas.insert(META_KEY.to_owned(), META_VAL.to_owned());
         let opts = PutObjectOptions {
             metas: Some(metas),
             ..Default::default()
         };
         let payload = Payload::Buffer(BUF.into());
-        let ret = oss_cli
-            .put_object("test-with-header", payload, opts)
-            .await
-            .unwrap();
+        let ret = oss_cli.put_object(FILE_NAME, payload, opts).await.unwrap();
         println!("StatusCode: {}", ret.status.to_string());
         println!("headers: {:?}", ret.headers);
 
-        let mut reader = ret
-            .body
-            .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))
+        let mut reader = TryStreamExt::map_err(ret.body, |error| {
+            std::io::Error::new(std::io::ErrorKind::Other, error)
+        })
             .into_async_read();
+
         let mut buf = String::new();
         reader.read_to_string(&mut buf).await.unwrap();
         println!("Body: {}", buf);
@@ -115,7 +120,7 @@ mod tests {
     async fn put_stream_object_test() {
         let oss_cli = oss_client();
         let mut metas = Metas::default();
-        metas.insert("test-meta-key".to_owned(), "test-meta-val".to_owned());
+        metas.insert(META_KEY.to_owned(), META_VAL.to_owned());
         let opts = PutObjectOptions {
             metas: Some(metas),
             ..Default::default()
@@ -128,9 +133,9 @@ mod tests {
         println!("StatusCode: {}", ret.status.to_string());
         println!("headers: {:?}", ret.headers);
 
-        let mut reader = ret
-            .body
-            .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))
+        let mut reader = TryStreamExt::map_err(ret.body, |error| {
+            std::io::Error::new(std::io::ErrorKind::Other, error)
+        })
             .into_async_read();
         let mut buf = String::new();
         reader.read_to_string(&mut buf).await.unwrap();
