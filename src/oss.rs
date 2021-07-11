@@ -1,6 +1,6 @@
 use base64::encode;
 use crypto::{hmac::Hmac, mac::Mac, sha1::Sha1};
-use http_client::{HttpClient, HttpRequest, HttpResponse, Params};
+use http_client::{HttpClient, HttpRequest, Params};
 use hyper::header::HeaderValue;
 use url::Url;
 
@@ -10,6 +10,7 @@ use crate::{
     auth::canonicalized_resource,
     statics::{CONTENT_MD5, CONTENT_TYPE, OSS_CANONICALIZED_PREFIX},
     types::{Region, Request, Result, Schema},
+    Response,
 };
 
 #[derive(Debug)]
@@ -126,15 +127,12 @@ impl<C: HttpClient> OSSClient<C> {
         self.oss_sign(&mut rqst)?;
         self.generate_http_request(rqst)
     }
-    pub(crate) async fn sign_and_dispatch<'a>(
-        &self,
-        mut rqst: Request<'a>,
-    ) -> Result<HttpResponse> {
+    pub(crate) async fn sign_and_dispatch<'a>(&self, mut rqst: Request<'a>) -> Result<Response> {
         let len = rqst.content_length();
         rqst.headers_mut()
             .insert("content-length", HeaderValue::from(len));
         let request = self.singed_request(rqst)?;
-        Ok(self.client.dispatch(request).await?)
+        Ok(self.client.dispatch(request).await?.into())
     }
     pub(crate) fn generate_http_request(&self, mut rqst: Request) -> Result<HttpRequest> {
         let mut url = Url::from_str(&self.host(rqst.get_object(), ""))?;

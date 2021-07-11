@@ -1,8 +1,10 @@
 use bytes::{BufMut, Bytes, BytesMut};
 use futures::{future, stream, Stream, StreamExt};
+use hyper::Body;
 use pin_project::pin_project;
 use std::{
-    fmt, io,
+    fmt,
+    io::{self, Error as IoError},
     pin::Pin,
     task::{Context, Poll},
 };
@@ -59,6 +61,18 @@ impl From<Vec<u8>> for ByteStream {
             size_hint: Some(buf.len()),
             inner: Box::pin(stream::once(async move { Ok(Bytes::from(buf)) })),
         }
+    }
+}
+impl From<Body> for ByteStream {
+    fn from(body: Body) -> Self {
+        ByteStream::new(body.map(|try_chunk| {
+            try_chunk.map(|c| c).map_err(|e| {
+                IoError::new(
+                    io::ErrorKind::Other,
+                    format!("Error obtaining chunk: {}", e),
+                )
+            })
+        }))
     }
 }
 

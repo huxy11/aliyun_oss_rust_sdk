@@ -5,7 +5,7 @@ use crate::OSS_META_PREFIX;
 
 use super::{payload::Payload, Result, Schema};
 
-pub(crate) type Metas = std::collections::BTreeMap<String, String>;
+pub type Metas = std::collections::BTreeMap<String, String>;
 
 #[derive(Debug, Default)]
 pub(crate) struct Request<'a> {
