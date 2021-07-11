@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 
-hyper = { version="0.14", features=["stream"] }
+hyper = { version = "0.14", features = ["stream"] }
 
 url = "2.2"
 
@@ -18,9 +18,11 @@ futures = "0.3"
 
 serde = "1.0"
 
-reqwest = { version="0.11", features=["stream", "rustls-tls"] }
-
 async-trait = "0.1"
 
+reqwest = { version = "0.11", features = ["stream", "rustls-tls"] }
+
+once_cell = "1.7"
+
 [dev-dependencies]
-tokio = { version="1.8", features=["macros"] }
+tokio = { version = "1.8", features = ["macros"] }

@@ -55,11 +55,6 @@ pub enum Region {
     EuEast,
     /// Region that covers the Eastern part of Middle East
     MeEast,
-    //TODO below:
-    // Custom {
-    //     name: String,
-    //     endpoint: String,
-    // },
 }
 
 impl Region {

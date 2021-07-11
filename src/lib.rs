@@ -3,11 +3,13 @@ extern crate derive_more;
 extern crate headers_serializer;
 extern crate pin_project;
 
+mod api;
 mod auth;
 mod oss;
 mod statics;
 mod types;
 
-pub use crate::oss::OSSClient;
-pub use statics::*;
+pub(crate) use statics::*;
+
+pub use oss::OSSClient;
 pub use types::*;
