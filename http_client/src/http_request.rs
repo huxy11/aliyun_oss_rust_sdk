@@ -1,7 +1,7 @@
 use hyper::{Body, HeaderMap, Method, Uri};
 use url::Url;
 
-/// Url Query parameters 
+/// Url Query parameters
 pub type Params = std::collections::BTreeMap<String, Option<String>>;
 
 #[derive(Debug)]
@@ -39,17 +39,7 @@ impl From<HttpRequest> for hyper::Request<Body> {
             method,
             body,
             headers,
-            // params,
         } = rqst;
-        // let mut query = url.query_pairs_mut();
-        // for (name, value) in params.iter() {
-        //     if let Some(value) = value {
-        //         query.append_pair(name, value);
-        //     } else {
-        //         query.append_key_only(name);
-        //     }
-        // }
-        // drop(query);
         let uri: Uri = url.as_str().parse().expect("Invalid Url");
         let mut rqst = hyper::Request::builder()
             .method(method)
