@@ -2,9 +2,14 @@ use http_client::HttpClient;
 use hyper::{header::HeaderName, Method};
 
 use crate::{oss::OSSClient, GetObjectOptions};
-use crate::{HeadObjectOptions, Payload, PutObjectOptions, Request, Response, Result};
+use crate::{
+    HeadObjectOptions, Payload, PutObjectOptions, Request,
+    Response, Result,
+};
 
+/// Object Operations
 impl<C: HttpClient> OSSClient<C> {
+    /// You can call this operation to query an object. To perform the GetObject operation, you must have the read permissions on the object.
     pub async fn get_object<S, Opts>(&self, object: S, options: Opts) -> Result<Response>
     where
         S: AsRef<str>,
@@ -12,15 +17,15 @@ impl<C: HttpClient> OSSClient<C> {
     {
         let mut rqst = Request::new(
             Method::GET,
-            self.get_bucket(),
+            self.bucket(),
             Some(object.as_ref()),
             self.get_schema(),
             None,
             None,
             None,
         );
-        let opts = options.into().unwrap_or_default();
-        for (key, val) in opts.to_opts() {
+        let options = options.into().unwrap_or_default();
+        for (key, val) in options.to_opts() {
             rqst.headers_mut()
                 .insert(key.parse::<HeaderName>()?, val.parse()?);
         }
@@ -34,21 +39,22 @@ impl<C: HttpClient> OSSClient<C> {
     {
         let mut rqst = Request::new(
             Method::HEAD,
-            self.get_bucket(),
+            self.bucket(),
             Some(object.as_ref()),
             self.get_schema(),
             None,
             None,
             None,
         );
-        let opts = options.into().unwrap_or_default();
-        for (key, val) in opts.to_opts() {
+        let options = options.into().unwrap_or_default();
+        for (key, val) in options.to_opts() {
             rqst.headers_mut()
                 .insert(key.parse::<HeaderName>()?, val.parse()?);
         }
         self.sign_and_dispatch(rqst).await
     }
 
+    /// You can call this operation to upload objects.
     pub async fn put_object<S, Opts>(
         &self,
         object: S,
@@ -61,16 +67,16 @@ impl<C: HttpClient> OSSClient<C> {
     {
         let mut rqst = Request::new(
             Method::PUT,
-            self.get_bucket(),
+            self.bucket(),
             Some(object.as_ref()),
             self.get_schema(),
             Some(payload),
             None,
             None,
         );
-        let opts = options.into().unwrap_or_default();
-        rqst.add_metas(opts.metas.as_ref())?;
-        for (key, val) in opts.to_opts() {
+        let options = options.into().unwrap_or_default();
+        rqst.add_metas(options.metas.as_ref())?;
+        for (key, val) in options.to_opts() {
             rqst.headers_mut()
                 .insert(key.parse::<HeaderName>()?, val.parse()?);
         }
@@ -94,11 +100,11 @@ mod tests {
         let oss_cli = oss_client();
 
         /* Default Options */
-        let opts = GetObjectOptions {
+        let options = GetObjectOptions {
             ..Default::default()
         };
 
-        let ret = oss_cli.get_object(FILE_NAME, opts).await.unwrap();
+        let ret = oss_cli.get_object(FILE_NAME, options).await.unwrap();
         println!("StatusCode: {}", ret.status.to_string());
         println!("headers: {:?}", ret.headers);
         assert!(ret.headers.contains_key(META_KEY_WITH_PREFIX));
@@ -113,17 +119,21 @@ mod tests {
         reader.read_to_string(&mut buf).await.unwrap();
         println!("Body: {}", buf);
     }
+
     #[tokio::test]
     async fn put_buffer_object_test() {
         let oss_cli = oss_client();
         let mut metas = Metas::default();
         metas.insert(META_KEY.to_owned(), META_VAL.to_owned());
-        let opts = PutObjectOptions {
+        let options = PutObjectOptions {
             metas: Some(metas),
             ..Default::default()
         };
         let payload = Payload::Buffer(BUF.into());
-        let ret = oss_cli.put_object(FILE_NAME, payload, opts).await.unwrap();
+        let ret = oss_cli
+            .put_object(FILE_NAME, payload, options)
+            .await
+            .unwrap();
         println!("StatusCode: {}", ret.status.to_string());
         println!("headers: {:?}", ret.headers);
 
@@ -141,13 +151,13 @@ mod tests {
         let oss_cli = oss_client();
         let mut metas = Metas::default();
         metas.insert(META_KEY.to_owned(), META_VAL.to_owned());
-        let opts = PutObjectOptions {
+        let options = PutObjectOptions {
             metas: Some(metas),
             ..Default::default()
         };
         let payload = Payload::Stream(BUF.to_owned().into());
         let ret = oss_cli
-            .put_object("test-with-stream", payload, opts)
+            .put_object("test-with-stream", payload, options)
             .await
             .unwrap();
         println!("StatusCode: {}", ret.status.to_string());

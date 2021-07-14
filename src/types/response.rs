@@ -5,6 +5,7 @@ use std::io::Error as IoError;
 
 use crate::ByteStream;
 
+#[derive(Debug)]
 pub struct Response {
     /// Status code of HTTP Request
     pub status: StatusCode,

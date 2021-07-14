@@ -69,9 +69,6 @@ impl<'a> Request<'a> {
     pub(crate) fn get_method(&self) -> &Method {
         &self.method
     }
-    // pub(crate) fn get_bucket(&self) -> Option<&str> {
-    //     self.bucket
-    // }
     pub(crate) fn get_object(&self) -> Option<&str> {
         self.object
     }

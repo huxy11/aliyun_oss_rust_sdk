@@ -10,7 +10,7 @@ pub struct PutObjectOptions {
     /// <p></p>
     #[label("opts")]
     pub content_disposition: Option<String>,
-    /// <p>The content encoding type of the object during the download. </p>
+    /// <p>The content encoding type of the object during the download.</p>
     #[label("opts")]
     pub content_encoding: Option<String>,
     /// <p>The MD5 hash of the object you want to upload. The value of Content-MD5 is calculated based on the MD5 algorithm. After the Content-MD5 request header is uploaded, OSS calculates the MD5 hash of the received object and checks whether the calculated MD5 hash is the same as the Content-MD5 value provided in the request.</p>

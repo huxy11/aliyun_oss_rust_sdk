@@ -1,7 +1,5 @@
-mod get_object;
-mod head_object;
-mod put_object;
+mod bucket_operations;
+mod object_operations;
 
-pub use get_object::GetObjectOptions;
-pub use head_object::HeadObjectOptions;
-pub use put_object::PutObjectOptions;
+pub use bucket_operations::*;
+pub use object_operations::*;

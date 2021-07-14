@@ -36,10 +36,10 @@ impl<C: HttpClient> OSSClient<C> {
             .unwrap_or_default();
 
         let mut oss_headers_str = String::new();
-        for (k, v) in headers.iter().filter(|(k, _)| {
-            k.as_str().contains(OSS_CANONICALIZED_PREFIX)
-            // && !k.as_str().contains(OSS_META_PREFIX)
-        }) {
+        for (k, v) in headers
+            .iter()
+            .filter(|(k, _)| k.as_str().contains(OSS_CANONICALIZED_PREFIX))
+        {
             oss_headers_str += &format!(
                 "{}:{}\n",
                 k,
@@ -48,7 +48,7 @@ impl<C: HttpClient> OSSClient<C> {
         }
 
         let oss_resource_str =
-            canonicalized_resource(self.get_bucket(), rqst.get_object(), rqst.get_params());
+            canonicalized_resource(self.bucket(), rqst.get_object(), rqst.get_params());
         let sign_str = format!(
             "{}\n{}\n{}\n{}\n{}{}",
             rqst.get_method(),

@@ -51,7 +51,7 @@ impl<C: HttpClient> OSSClient<C> {
             access_key_secret: access_key_secret.into(),
         }
     }
-    pub fn get_bucket(&self) -> Option<&str> {
+    pub fn bucket(&self) -> Option<&str> {
         self.bucket.as_ref().map(String::as_str)
     }
     pub fn get_signed_url<'a, H>(
@@ -82,7 +82,7 @@ impl<C: HttpClient> OSSClient<C> {
                 }
             }
         }
-        let oss_resource_str = canonicalized_resource(self.get_bucket(), object, params);
+        let oss_resource_str = canonicalized_resource(self.bucket(), object, params);
         let sign_str = format!(
             "{}\n{}\n{}\n{}\n{}{}",
             verb, content_md5, content_type, expires, oss_headers_str, oss_resource_str
@@ -99,7 +99,7 @@ impl<C: HttpClient> OSSClient<C> {
     }
     fn host(&self, object: Option<&str>, params_str: &str) -> String {
         let mut host = format!("{}://", self.schema);
-        if let Some(bucket) = self.get_bucket() {
+        if let Some(bucket) = self.bucket() {
             host.push_str(bucket);
             host.push('.');
         }
