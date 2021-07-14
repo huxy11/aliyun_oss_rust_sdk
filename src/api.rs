@@ -2,10 +2,31 @@ use http_client::HttpClient;
 use hyper::{header::HeaderName, Method};
 
 use crate::{oss::OSSClient, GetObjectOptions};
-use crate::{
-    HeadObjectOptions, Payload, PutObjectOptions, Request,
-    Response, Result,
-};
+use crate::{HeadObjectOptions, Payload, PutBucketOptions, PutObjectOptions, Request, Response, Result};
+/// Bucket Operations
+impl<C: HttpClient> OSSClient<C> {
+    pub async fn put_bucket<S, Opts>(&self, bucket: S, options: Opts) -> Result<Response>
+    where
+        S: AsRef<str>,
+        Opts: Into<Option<PutBucketOptions>>,
+    {
+        let mut rqst = Request::new(
+            Method::PUT,
+            Some(bucket.as_ref()),
+            None,
+            self.get_schema(),
+            None,
+            None,
+            None,
+        );
+        let options = options.into().unwrap_or_default();
+        for (key, val) in options.to_opts() {
+            rqst.headers_mut()
+                .insert(key.parse::<HeaderName>()?, val.parse()?);
+        }
+        self.sign_and_dispatch(rqst).await
+    }
+}
 
 /// Object Operations
 impl<C: HttpClient> OSSClient<C> {
@@ -89,6 +110,27 @@ mod tests {
     use super::*;
     use crate::types::Metas;
     use tokio::io::AsyncReadExt;
+    /* Bucket Operations */
+    #[tokio::test]
+    async fn put_bucket_test() {
+        let oss_cli = oss_client();
+        let options = PutBucketOptions {
+            ..Default::default()
+        };
+        let ret = oss_cli
+            .put_bucket(oss_cli.bucket().unwrap(), options)
+            .await
+            .unwrap();
+        println!("{:?}", ret);
+        let mut buf = String::new();
+        ret.body
+            .into_async_read()
+            .read_to_string(&mut buf)
+            .await
+            .unwrap();
+        println!("{}", buf);
+    }
+    /* Object Operations */
     const BUF: &[u8] = "This is just a put test".as_bytes();
     const FILE_NAME: &str = "test-with-header";
     const META_KEY: &str = "test-meta-key";
