@@ -86,12 +86,9 @@ pub(crate) fn canonicalized_resource(
         ret.push('/');
         ret.push_str(bucket);
     }
+    ret.push('/');
     if let Some(object) = object {
-        ret.push('/');
         ret.push_str(object);
-    }
-    if ret.is_empty() {
-        ret.push('/');
     }
     ret.push_str(&get_resources_str(params));
     ret
