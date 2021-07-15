@@ -1,7 +1,7 @@
-mod get_object;
-mod head_object;
-mod put_object;
+mod get;
+mod head;
+mod put;
 
-pub use get_object::GetObjectOptions;
-pub use head_object::HeadObjectOptions;
-pub use put_object::PutObjectOptions;
+pub use get::GetObjectOptions;
+pub use head::HeadObjectOptions;
+pub use put::PutObjectOptions;

@@ -1,5 +1,5 @@
-mod get_bucket;
-mod put_bucket;
+mod get;
+mod put;
 
-pub use get_bucket::GetBucketOptions;
-pub use put_bucket::PutBucketOptions;
+pub use get::GetBucketOptions;
+pub use put::PutBucketOptions;

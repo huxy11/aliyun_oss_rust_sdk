@@ -132,10 +132,9 @@ mod tests {
         let options = PutBucketOptions {
             ..Default::default()
         };
-        let ret = oss_cli
-            .put_bucket(oss_cli.bucket().unwrap(), options)
-            .await
-            .unwrap();
+        let bucket = oss_cli.bucket().unwrap().to_owned() + "oss-sdk-test";
+        println!("{}", bucket);
+        let ret = oss_cli.put_bucket(bucket, options).await.unwrap();
         println!("{:?}", ret);
         let mut buf = String::new();
         ret.body
@@ -266,80 +265,4 @@ mod tests {
             access_key_secret.to_owned(),
         )
     }
-
-    // #[tokio::test]
-    // async fn smoke_test() {
-    //     let bucket = std::env::var("OSS_BUCKET").unwrap();
-    //     let access_key_id = std::env::var("OSS_KEY_ID").unwrap();
-    //     let access_key_secret = std::env::var("OSS_KEY_SECRET").unwrap();
-
-    //     let mut str_buffer = String::new();
-
-    //     let oss_ins = OSSClient::new_with_reqwest(
-    //         "北京",
-    //         None,
-    //         "oss_put_bucket_test",
-    //         access_key_id.to_owned(),
-    //         access_key_secret.to_owned(),
-    //     );
-
-    //     let rqst = PutBucketRequest {
-    //         ..Default::default()
-    //     };
-    //     let ret = oss_ins.sign_and_dispatch(rqst).await;
-    //     println!("{:?}", ret);
-
-    //     let oss_instance = OSSClient::new_with_reqwest(
-    //         "北京",
-    //         None,
-    //         bucket.as_ref(),
-    //         access_key_id,
-    //         access_key_secret,
-    //     );
-
-    //     /* Put Object  */
-    //     // let payload = SignedRequestPayload::Buffer(Bytes::from(BUF));
-
-    //     let chunk = vec![Ok(Bytes::from_static(BUF))];
-    //     let stream = ByteStream::new(stream::iter(chunk));
-    //     let payload = SignedRequestPayload::Stream(stream);
-
-    //     let mut rqst = oss_instance.put_request(FILE_NAME, payload);
-    //     rqst.add_meta([("test-key", "test-val")].iter().map(|a| a.to_owned()))
-    //         .unwrap();
-    //     let ret = oss_instance.sign_and_dispatch(rqst).await;
-    //     println!("Put object ret = {:?}", ret);
-    //     assert!(ret.is_ok() && ret.unwrap().status.is_success());
-
-    //     /* Get Object */
-    //     let mut rqst = oss_instance.get_request(None);
-    //     rqst.add_params("prefix", "rust_oss_sdk");
-    //     let ret = oss_instance.sign_and_dispatch(rqst).await.unwrap();
-    //     assert!(ret.status.is_success());
-
-    //     /* Get Object */
-    //     let rqst = oss_instance.get_request(FILE_NAME);
-    //     let ret = oss_instance.sign_and_dispatch(rqst).await.unwrap();
-    //     ret.body
-    //         .into_async_read()
-    //         .read_to_string(&mut str_buffer)
-    //         .await
-    //         .unwrap();
-    //     assert_eq!(str_buffer.as_bytes(), BUF);
-
-    //     /* Add Header to Object */
-    //     let rqst = oss_instance.head_request(FILE_NAME);
-    //     let ret = oss_instance.sign_and_dispatch(rqst).await;
-    //     assert!(ret.is_ok() && ret.unwrap().headers.contains_key("x-oss-meta-test-key"));
-
-    //     /* Del Object */
-    //     let rqst = oss_instance.del_request(FILE_NAME);
-    //     let ret = oss_instance.sign_and_dispatch(rqst).await;
-    //     assert!(ret.is_ok() && ret.unwrap().status.is_success());
-
-    //     /* Check if del succeed */
-    //     let rqst = oss_instance.get_request(FILE_NAME);
-    //     let ret = oss_instance.sign_and_dispatch(rqst).await;
-    //     assert!(ret.is_ok() && ret.unwrap().status.is_client_error());
-    // }
 }
