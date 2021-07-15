@@ -118,6 +118,21 @@ impl<C: HttpClient> OSSClient<C> {
         }
         self.sign_and_dispatch(rqst).await
     }
+    pub async fn delete_object<S>(&self, object: S) -> Result<Response>
+    where
+        S: AsRef<str>,
+    {
+        let rqst = Request::new(
+            Method::DELETE,
+            self.bucket(),
+            Some(object.as_ref()),
+            self.get_schema(),
+            None,
+            None,
+            None,
+        );
+        self.sign_and_dispatch(rqst).await
+    }
 }
 
 #[cfg(test)]
@@ -133,9 +148,8 @@ mod tests {
             ..Default::default()
         };
         let bucket = oss_cli.bucket().unwrap().to_owned() + "oss-sdk-test";
-        println!("{}", bucket);
         let ret = oss_cli.put_bucket(bucket, options).await.unwrap();
-        println!("{:?}", ret);
+        // assert_eq!(ret.status.as_u16(), 200);
         let mut buf = String::new();
         ret.body
             .into_async_read()
@@ -151,7 +165,8 @@ mod tests {
             ..Default::default()
         };
         let ret = oss_cli.get_bucket(options).await.unwrap();
-        println!("{:?}", ret);
+        assert_eq!(ret.status.as_u16(), 200);
+
         let mut buf = String::new();
         ret.body
             .into_async_read()
@@ -169,31 +184,6 @@ mod tests {
     const META_VAL: &str = "test-meta-val";
 
     #[tokio::test]
-    async fn get_object_test() {
-        let oss_cli = oss_client();
-
-        /* Default Options */
-        let options = GetObjectOptions {
-            ..Default::default()
-        };
-
-        let ret = oss_cli.get_object(FILE_NAME, options).await.unwrap();
-        println!("StatusCode: {}", ret.status.to_string());
-        println!("headers: {:?}", ret.headers);
-        assert!(ret.headers.contains_key(META_KEY_WITH_PREFIX));
-
-        let mut buf = if let (_, Some(size_hint)) = ret.body.size_hint() {
-            String::with_capacity(size_hint)
-        } else {
-            String::new()
-        };
-
-        let mut reader = ret.body.into_async_read();
-        reader.read_to_string(&mut buf).await.unwrap();
-        println!("Body: {}", buf);
-    }
-
-    #[tokio::test]
     async fn put_buffer_object_test() {
         let oss_cli = oss_client();
         let mut metas = Metas::default();
@@ -207,7 +197,7 @@ mod tests {
             .put_object(FILE_NAME, payload, options)
             .await
             .unwrap();
-        println!("StatusCode: {}", ret.status.to_string());
+        assert_eq!(ret.status.as_u16(), 200);
         println!("headers: {:?}", ret.headers);
 
         let mut buf = if let (_, Some(size_hint)) = ret.body.size_hint() {
@@ -233,7 +223,7 @@ mod tests {
             .put_object("test-with-stream", payload, options)
             .await
             .unwrap();
-        println!("StatusCode: {}", ret.status.to_string());
+        assert_eq!(ret.status.as_u16(), 200);
         println!("headers: {:?}", ret.headers);
 
         let mut buf = if let (_, Some(size_hint)) = ret.body.size_hint() {
@@ -246,11 +236,45 @@ mod tests {
         println!("Body: {}", buf);
     }
     #[tokio::test]
+    async fn get_object_test() {
+        let oss_cli = oss_client();
+
+        /* Default Options */
+        let options = GetObjectOptions {
+            ..Default::default()
+        };
+
+        let ret = oss_cli.get_object(FILE_NAME, options).await.unwrap();
+        assert_eq!(ret.status.as_u16(), 200);
+        println!("headers: {:?}", ret.headers);
+        assert!(ret.headers.contains_key(META_KEY_WITH_PREFIX));
+
+        let mut buf = if let (_, Some(size_hint)) = ret.body.size_hint() {
+            String::with_capacity(size_hint)
+        } else {
+            String::new()
+        };
+
+        let mut reader = ret.body.into_async_read();
+        reader.read_to_string(&mut buf).await.unwrap();
+        println!("Body: {}", buf);
+    }
+    #[tokio::test]
     async fn head_object_test() {
         let oss_cli = oss_client();
         let ret = oss_cli.head_object(FILE_NAME, None).await.unwrap();
-        println!("StatusCode: {}", ret.status.to_string());
+        assert_eq!(ret.status.as_u16(), 200);
         println!("headers: {:?}", ret.headers);
+    }
+    #[tokio::test]
+    async fn delete_object_test() {
+        let oss_cli = oss_client();
+        let ret = oss_cli
+            .delete_object(FILE_NAME.to_owned() + "-sec")
+            .await
+            .unwrap();
+        // HTTP status code 204 is returned when the DeleteObject operation succeeds, regardless of whether the object exists.
+        assert_eq!(ret.status.as_u16(), 204);
     }
     fn oss_client() -> OSSClient<http_client::DefaultClient> {
         let bucket = std::env::var("OSS_BUCKET").unwrap();
